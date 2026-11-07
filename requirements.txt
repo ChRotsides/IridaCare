@@ -1,0 +1,10 @@
+flask
+requests
+# Newer pytapo needs python-kasa 0.9+, which Python 3.10 cannot install.
+pytapo==3.3.38; python_version < "3.11"
+pytapo; python_version >= "3.11"
+# Following and voice
+mediapipe
+numpy
+websockets
+onnxruntime  # cat watch runs YOLO26 on the CPU (models/yolo/yolo26l.onnx)

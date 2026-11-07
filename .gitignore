@@ -1,0 +1,22 @@
+# Secrets: camera login and API keys
+.env
+.env.*
+!.env.example
+
+# Footage and logs from your own home
+clips/
+sightings/
+*.log
+
+# Downloaded models and binaries (see README)
+models/
+bin/
+
+# Python
+.venv/
+.venv-gpu/
+__pycache__/
+*.pyc
+
+# Tooling
+.playwright-mcp/

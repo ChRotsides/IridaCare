@@ -1,0 +1,8 @@
+# For .venv-gpu, which runs yoloe_worker.py. On the Linux PC, first make that venv
+# borrow the custom Kepler torch: add a .pth file in its site-packages containing
+# ~/ai/envs/kepler-gpu/lib/python3.12/site-packages (use the full path).
+# Never install torch itself here or in kepler-gpu.
+ultralytics
+git+https://github.com/ultralytics/CLIP.git
+numpy<2
+opencv-python-headless<4.13

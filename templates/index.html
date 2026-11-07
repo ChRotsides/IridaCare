@@ -1,0 +1,927 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#1a1726">
+<title>IridaCare</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpath d='M2 16C7 7 25 7 30 16C25 25 7 25 2 16Z' fill='%23a48bff'/%3E%3Cellipse cx='16' cy='16' rx='3' ry='8' fill='%23f6c453'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&family=Young+Serif&display=swap" rel="stylesheet">
+<style>
+  /* Named after the iris (Irida in Greek): violet for controls, the flower's yellow for Irida herself. */
+  :root {
+    color-scheme: dark;
+    --night: #1a1726; --dusk: #232034; --dusk-2: #2d2842; --seam: #362f4d;
+    --milk: #f1ecf8; --haze: #a39bbd;
+    --iris: #a48bff; --pollen: #f6c453; --rec: #ff6b6b;
+    --serif: "Young Serif", Georgia, serif;
+    --sans: "Figtree", system-ui, "Segoe UI", sans-serif;
+  }
+  * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  html, body { background: var(--night); }
+  body { margin: 0; color: var(--milk); font: 15px/1.5 var(--sans); -webkit-font-smoothing: antialiased; }
+  button, .button { font: inherit; color: var(--milk); background: var(--dusk-2); border: 0; border-radius: 12px; padding: 10px 14px; cursor: pointer; text-align: center; text-decoration: none; touch-action: manipulation; user-select: none; -webkit-tap-highlight-color: transparent; }
+  button:hover, .button:hover { background: #38324f; }
+  button:disabled { opacity: .4; cursor: default; }
+  :focus-visible { outline: 2px solid var(--iris); outline-offset: 2px; }
+  button.active { background: var(--iris); color: var(--night); font-weight: 600; }
+  svg.icon { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+  h1, h2 { font-family: var(--serif); font-weight: 400; margin: 0; }
+
+  main {
+    max-width: 1240px; margin: 0 auto; padding: 16px 24px 32px; display: grid; gap: 20px 28px;
+    grid-template-columns: minmax(0, 1fr) 340px; grid-template-areas: "head head" "stage side"; align-items: start;
+  }
+
+  /* Header */
+  header { grid-area: head; display: flex; align-items: center; gap: 12px; }
+  .brand { display: flex; align-items: center; gap: 9px; margin-right: auto; }
+  .brand svg { width: 28px; height: 28px; }
+  h1 { font-size: 24px; }
+  #presence { display: flex; align-items: center; gap: 8px; padding: 6px 14px 6px 12px; border-radius: 999px; background: var(--dusk); color: var(--haze); font-size: 14px; white-space: nowrap; }
+  #presence i { width: 8px; height: 8px; border-radius: 50%; background: var(--haze); flex: none; }
+  #presence.seen i { background: var(--pollen); }
+  #presence.here { background: var(--pollen); color: var(--night); font-weight: 600; }
+  #presence.here i { background: var(--night); animation: beat 1.6s ease-in-out infinite; }
+  @keyframes beat { 50% { transform: scale(.5); opacity: .45; } }
+  .iconbtn { width: 40px; height: 40px; padding: 0; display: grid; place-items: center; border-radius: 50%; background: var(--dusk); }
+
+  /* Live view */
+  #stage { grid-area: stage; min-width: 0; }
+  #view { position: relative; background: #000; border-radius: 18px; overflow: hidden; aspect-ratio: 16 / 9; }
+  #video, #fallback { width: 100%; height: 100%; object-fit: contain; display: block; }
+  #boxes { position: absolute; inset: 0; pointer-events: none; }
+  .box { position: absolute; border: 1px solid rgba(255, 255, 255, .55); border-radius: 6px; }
+  .box.target { border: 2px solid var(--iris); }
+  .box.cat { border: 2px solid var(--pollen); }
+  .box span { position: absolute; left: -2px; top: -23px; padding: 0 7px; font-size: 12px; line-height: 20px; white-space: nowrap; background: rgba(20, 17, 32, .8); color: #fff; border-radius: 6px; }
+  .box.cat span { background: var(--pollen); color: var(--night); font-weight: 600; }
+  #message { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; padding: 24px; text-align: center; color: var(--haze); }
+  #message.bad { color: var(--rec); }
+  .overlay { position: absolute; left: 12px; right: 12px; display: flex; align-items: center; gap: 6px; pointer-events: none; }
+  .overlay.top { top: 12px; }
+  .overlay.bottom { bottom: 12px; justify-content: flex-end; }
+  .overlay > * { pointer-events: auto; }
+  .chip { padding: 4px 10px; border-radius: 999px; font-size: 12px; font-weight: 600; background: rgba(16, 13, 26, .62); color: #fff; backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
+  #recBadge { background: var(--rec); font-variant-numeric: tabular-nums; }
+  #recBadge::before { content: ""; display: inline-block; width: 7px; height: 7px; margin-right: 6px; border-radius: 50%; background: #fff; vertical-align: 1px; animation: beat 1.6s ease-in-out infinite; }
+  #stats { margin-left: auto; font-weight: 500; font-variant-numeric: tabular-nums; opacity: 0; transition: opacity .2s; }
+  #view:hover #stats { opacity: 1; }
+  .overlay button { padding: 5px 11px; border-radius: 999px; font-size: 12px; font-weight: 600; background: rgba(16, 13, 26, .62); color: #fff; backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
+  .overlay button.active { background: #fff; color: var(--night); }
+  .overlay .round { width: 32px; height: 32px; padding: 0; display: grid; place-items: center; }
+  .overlay .round svg { width: 17px; height: 17px; }
+
+  /* The row of round buttons under the video */
+  #dock { display: flex; justify-content: center; gap: 22px; margin-top: 18px; }
+  #dock .tool { display: flex; flex-direction: column; align-items: center; gap: 7px; padding: 0; background: none; color: var(--haze); font-size: 13px; }
+  #dock .tool .disc { width: 56px; height: 56px; border-radius: 50%; display: grid; place-items: center; background: var(--dusk-2); color: var(--milk); transition: background .15s; }
+  #dock .tool:hover .disc { background: #38324f; }
+  #dock .tool[aria-expanded="true"] { color: var(--milk); }
+  #dock .tool[aria-expanded="true"] .disc { background: var(--iris); color: var(--night); }
+  #dock .tool.lit .disc { box-shadow: 0 0 0 2px var(--iris); }
+  #dock #rattle .disc { background: var(--pollen); color: var(--night); }
+  #dock #rattle:hover .disc { background: #ffd36e; }
+  #rattle.busy .disc { animation: shake .25s linear infinite; }
+  @keyframes shake { 25% { transform: rotate(-12deg); } 75% { transform: rotate(12deg); } }
+
+  /* The drawer that opens under the row */
+  #drawer { max-width: 460px; margin: 18px auto 0; padding: 18px; border-radius: 18px; background: var(--dusk); }
+    .pane-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
+  .pane-head h2 { font-size: 17px; }
+  .hint { margin: 10px 0 0; font-size: 13px; color: var(--haze); overflow-wrap: anywhere; }
+  .stack { display: grid; gap: 8px; }
+  .pair { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+
+  /* Pan and tilt: a round pad like a joystick */
+  #pad { position: relative; width: 196px; height: 196px; margin: 0 auto; border-radius: 50%; background: var(--dusk-2); }
+  #pad button { position: absolute; width: 60px; height: 60px; padding: 0; display: grid; place-items: center; border-radius: 50%; background: transparent; color: var(--milk); }
+  #pad button:hover { background: rgba(255, 255, 255, .06); }
+  #pad button:active { background: var(--iris); color: var(--night); }
+  #pad .up { top: 4px; left: 68px; } #pad .down { bottom: 4px; left: 68px; }
+  #pad .left { left: 4px; top: 68px; } #pad .right { right: 4px; top: 68px; }
+  #pad .hub { position: absolute; inset: 70px; border-radius: 50%; background: var(--dusk); }
+  .slider { display: flex; align-items: center; gap: 12px; margin-top: 18px; font-size: 13px; color: var(--haze); }
+  input[type=range] { flex: 1; accent-color: var(--iris); }
+
+  select, input[type=text], #custom { width: 100%; padding: 10px 12px; background: var(--dusk-2); color: var(--milk); border: 0; border-radius: 12px; font: inherit; }
+  #customForm { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; }
+  #lines { margin-top: 12px; max-height: 180px; overflow-y: auto; font-size: 13px; overflow-wrap: anywhere; }
+  #lines:empty { display: none; }
+  #lines p { margin: 0 0 6px; }
+  #lines b { color: var(--haze); font-weight: 600; }
+
+  /* Switch */
+  .switch { display: inline-flex; align-items: center; gap: 10px; padding: 0; background: none; color: var(--haze); font-size: 14px; }
+  .switch:hover { background: none; }
+  .switch .track { width: 42px; height: 24px; border-radius: 999px; background: var(--seam); position: relative; transition: background .2s; flex: none; }
+  .switch .track::after { content: ""; position: absolute; top: 3px; left: 3px; width: 18px; height: 18px; border-radius: 50%; background: var(--milk); transition: transform .2s; }
+  .switch[aria-checked="true"] { color: var(--milk); }
+  .switch[aria-checked="true"] .track { background: var(--iris); }
+  .switch[aria-checked="true"] .track::after { transform: translateX(18px); }
+
+  /* Side: Irida and her activity */
+  aside { grid-area: side; display: flex; flex-direction: column; gap: 22px; min-width: 0; position: sticky; top: 16px; max-height: calc(100vh - 32px); }
+  #care { display: grid; grid-template-columns: 104px minmax(0, 1fr); gap: 4px 14px; align-items: center; }
+  #care .thumb { grid-row: span 2; display: block; width: 104px; aspect-ratio: 1; border-radius: 16px; overflow: hidden; background: var(--dusk-2); }
+  #lastCatImage { width: 100%; height: 100%; object-fit: cover; display: block; }
+  #care .thumb.empty { display: grid; place-items: center; color: var(--haze); }
+  #lastCatTitle { font-family: var(--serif); font-size: 19px; line-height: 1.25; }
+  #lastCatText { margin: 0; font-size: 13px; color: var(--haze); }
+  .care-actions { grid-column: 1 / -1; display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 12px; }
+  #lastCatGo { padding: 7px 12px; font-size: 13px; }
+
+  .section-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; margin-bottom: 10px; }
+  .section-head h2 { font-size: 19px; }
+  #clipsState { font-size: 13px; color: var(--haze); }
+  #clipsState.rec { color: var(--rec); font-weight: 600; }
+  #activity { display: flex; flex-direction: column; min-height: 0; }
+  #clipList { display: flex; flex-direction: column; gap: 4px; overflow-y: auto; min-height: 0; margin: 0 -8px; padding: 0 8px; scrollbar-width: thin; scrollbar-color: var(--seam) transparent; }
+  .clip { display: grid; grid-template-columns: 120px minmax(0, 1fr); gap: 12px; align-items: center; padding: 6px; border-radius: 14px; background: none; text-align: left; flex: none; }
+  .clip:hover { background: var(--dusk); }
+  .clip .pic { position: relative; display: block; border-radius: 10px; overflow: hidden; background: #000; }
+  .clip img { display: block; width: 100%; aspect-ratio: 16 / 9; object-fit: cover; }
+  .clip .len { position: absolute; right: 5px; bottom: 5px; padding: 0 6px; font-size: 11px; font-weight: 600; line-height: 18px; background: rgba(16, 13, 26, .75); color: #fff; border-radius: 5px; font-variant-numeric: tabular-nums; }
+  .clip .when { font-weight: 600; font-variant-numeric: tabular-nums; }
+  .clip .when small { display: block; font-weight: 400; font-size: 13px; color: var(--haze); }
+  #clipsEmpty { margin: 0; padding: 22px 16px; border-radius: 14px; background: var(--dusk); color: var(--haze); font-size: 14px; text-align: center; }
+
+  /* Dialogs: a clip, and the settings */
+  dialog { padding: 0; border: 0; border-radius: 20px; background: var(--dusk); color: var(--milk); }
+  dialog::backdrop { background: rgba(10, 8, 18, .8); }
+  dialog#player { width: min(960px, calc(100vw - 24px)); overflow: hidden; }
+  #playerVideo { display: block; width: 100%; max-height: calc(100vh - 140px); background: #000; }
+  .playerbar { display: flex; align-items: center; gap: 8px; padding: 12px 14px; flex-wrap: wrap; }
+  #playerText { margin-right: auto; font-weight: 600; }
+  #playerText small { display: block; color: var(--haze); font-size: 13px; font-weight: 400; }
+  #playerDelete.confirm { background: var(--rec); color: #fff; font-weight: 600; }
+  dialog#settings { width: min(420px, calc(100vw - 24px)); padding: 20px; }
+  .setting + .setting { margin-top: 18px; }
+  .setting > span { display: block; margin-bottom: 8px; font-size: 13px; color: var(--haze); }
+  #host { display: block; margin-top: 18px; font-size: 13px; color: var(--haze); }
+
+  /* Problems show up as a note at the bottom of the screen. */
+  #note { position: fixed; left: 50%; bottom: max(18px, env(safe-area-inset-bottom)); transform: translateX(-50%); z-index: 10; width: max-content; max-width: min(560px, calc(100vw - 32px)); margin: 0; padding: 10px 16px; border-radius: 14px; background: #3d2233; color: #ffdede; font-size: 14px; box-shadow: 0 10px 30px rgba(0, 0, 0, .45); }
+  #note:empty { display: none; }
+
+  @media (max-width: 900px) {
+    main { grid-template-columns: minmax(0, 1fr); grid-template-areas: "head" "stage" "side"; padding: 10px 0 28px; gap: 14px; }
+    header { padding: 0 16px; }
+    h1 { font-size: 21px; }
+    #presence { font-size: 13px; padding: 5px 12px 5px 10px; min-width: 0; }
+    #presence span { overflow: hidden; text-overflow: ellipsis; }
+    header .iconbtn { flex: none; }
+    #view { border-radius: 0; }
+    #stats { display: none; }
+    #dock { gap: 0; justify-content: space-around; padding: 0 8px; margin-top: 14px; }
+    #drawer { margin: 14px 16px 0; }
+    aside { position: static; max-height: none; padding: 0 16px; gap: 20px; }
+    /* Clips swipe sideways on a phone instead of making the page long. */
+    #clipList { flex-direction: row; overflow-x: auto; overflow-y: hidden; scroll-snap-type: x mandatory; scroll-padding-inline: 16px; margin: 0 -16px; padding: 0 16px 6px; gap: 10px; scrollbar-width: none; }
+    #clipList::-webkit-scrollbar { display: none; }
+    .clip { grid-template-columns: none; width: 168px; padding: 0; gap: 6px; scroll-snap-align: start; }
+    .clip:hover { background: none; }
+    #playerText { flex-basis: 100%; }
+    .playerbar > :not(#playerText) { flex: 1; }
+  }
+  @media (max-width: 400px) { #dock .tool .disc { width: 50px; height: 50px; } }
+  @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-rattle" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><circle cx="9.5" cy="10" r="1.2" fill="currentColor"/><circle cx="14" cy="9.5" r="1.2" fill="currentColor"/><circle cx="12.5" cy="14" r="1.2" fill="currentColor"/><path d="M3 5.5l1.5 1M21 5.5l-1.5 1M3 18.5l1.5-1M21 18.5l-1.5-1"/></symbol>
+  <symbol id="i-camera" viewBox="0 0 24 24"><path d="M4 8h3l1.5-2h7L17 8h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></symbol>
+  <symbol id="i-move" viewBox="0 0 24 24"><path d="M12 3v18M3 12h18M12 3l-3 3M12 3l3 3M12 21l-3-3M12 21l3-3M3 12l3-3M3 12l3 3M21 12l-3-3M21 12l-3 3"/></symbol>
+  <symbol id="i-follow" viewBox="0 0 24 24"><circle cx="12" cy="12" r="7"/><circle cx="12" cy="12" r="2.5"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></symbol>
+  <symbol id="i-mic" viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21"/></symbol>
+  <symbol id="i-gear" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3M5.3 5.3l2.1 2.1M16.6 16.6l2.1 2.1M5.3 18.7l2.1-2.1M16.6 7.4l2.1-2.1"/></symbol>
+  <symbol id="i-full" viewBox="0 0 24 24"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></symbol>
+  <symbol id="i-up" viewBox="0 0 24 24"><path d="M6 15l6-6 6 6"/></symbol>
+  <symbol id="i-paw" viewBox="0 0 24 24"><ellipse cx="12" cy="15.5" rx="4.5" ry="3.8"/><circle cx="6" cy="10" r="1.8"/><circle cx="9.5" cy="6.5" r="1.8"/><circle cx="14.5" cy="6.5" r="1.8"/><circle cx="18" cy="10" r="1.8"/></symbol>
+</svg>
+<main>
+  <header>
+    <div class="brand">
+      <svg viewBox="0 0 32 32" aria-hidden="true"><path d="M2 16C7 7 25 7 30 16C25 25 7 25 2 16Z" fill="#a48bff"/><ellipse cx="16" cy="16" rx="3" ry="8" fill="#f6c453"/></svg>
+      <h1>IridaCare</h1>
+    </div>
+    <div id="presence" role="status"><i></i><span id="presenceText">Connecting…</span></div>
+    <button id="openSettings" class="iconbtn" aria-label="Camera settings"><svg class="icon"><use href="#i-gear"/></svg></button>
+  </header>
+
+  <div id="stage">
+    <div id="view">
+      <canvas id="video" aria-label="Live view of the room"></canvas>
+      <img id="fallback" alt="Live view of the room" hidden>
+      <div id="boxes"></div>
+      <div id="message">Connecting…</div>
+      <div class="overlay top"><span id="recBadge" class="chip" hidden></span><span id="lightBadge" class="chip" hidden></span><span id="hdBusy" class="chip" hidden title="The Tapo app or another page is using the camera's HD connections">HD busy, showing SD</span><span id="stats" class="chip"></span></div>
+      <div class="overlay bottom">
+        <button data-quality="low" aria-label="Lower quality">SD</button><button data-quality="high" class="active" aria-label="Higher quality">HD</button>
+        <button id="fullscreen" class="round" aria-label="Full screen"><svg class="icon"><use href="#i-full"/></svg></button>
+      </div>
+    </div>
+
+    <nav id="dock" aria-label="Camera controls">
+      <button id="rattle" class="tool"><span class="disc"><svg class="icon"><use href="#i-rattle"/></svg></span><span class="label">Rattle</span></button>
+      <button id="snapshot" class="tool"><span class="disc"><svg class="icon"><use href="#i-camera"/></svg></span>Snapshot</button>
+      <button class="tool" data-pane="move" aria-expanded="false"><span class="disc"><svg class="icon"><use href="#i-move"/></svg></span>Move</button>
+      <button class="tool" data-pane="follow" aria-expanded="false" id="followTool"><span class="disc"><svg class="icon"><use href="#i-follow"/></svg></span>Follow</button>
+      <button class="tool" data-pane="voice" aria-expanded="false" id="voiceTool"><span class="disc"><svg class="icon"><use href="#i-mic"/></svg></span>Voice</button>
+    </nav>
+    <div id="drawer" hidden>
+<div class="pane" id="pane-move" hidden>
+  <div class="pane-head"><h2>Move the camera</h2></div>
+  <div id="pad">
+    <span class="hub" aria-hidden="true"></span>
+    <button class="up" data-pan="0" data-tilt="1" aria-label="Tilt up"><svg class="icon"><use href="#i-up"/></svg></button>
+    <button class="left" data-pan="-1" data-tilt="0" aria-label="Pan left"><svg class="icon" style="transform: rotate(-90deg)"><use href="#i-up"/></svg></button>
+    <button class="right" data-pan="1" data-tilt="0" aria-label="Pan right"><svg class="icon" style="transform: rotate(90deg)"><use href="#i-up"/></svg></button>
+    <button class="down" data-pan="0" data-tilt="-1" aria-label="Tilt down"><svg class="icon" style="transform: rotate(180deg)"><use href="#i-up"/></svg></button>
+  </div>
+  <label class="slider">Slow <input id="speed" type="range" min="0.3" max="1" step="0.1" value="0.5" aria-label="Speed"> Fast</label>
+</div>
+<div class="pane" id="pane-follow" hidden>
+  <div class="pane-head"><h2>Follow</h2><button id="followOff">Stop</button></div>
+  <div class="stack">
+    <div class="pair"><button data-target="face">A face</button><button data-target="hand">A hand</button></div>
+    <select id="object" aria-label="Follow an object"><option value="">An object…</option></select>
+    <form id="customForm">
+      <input id="custom" maxlength="40" placeholder="Or describe anything" aria-label="Describe what to follow">
+      <button type="submit">Find</button>
+    </form>
+  </div>
+  <p id="followState" class="hint" role="status">Not following.</p>
+</div>
+<div class="pane" id="pane-voice" hidden>
+  <div class="pane-head"><h2>Voice</h2><button id="voiceSwitch" class="switch" role="switch" aria-checked="false" aria-label="Voice"><span class="track"></span></button></div>
+  <p id="voiceState" class="hint" role="status" style="margin-top:0">Off. The microphone is not sent anywhere.</p>
+  <div id="lines"></div>
+</div>
+
+    </div>
+  </div>
+
+  <aside>
+    <section id="care" aria-label="Irida">
+      <a class="thumb" id="lastCatLink" href="/api/watch/last.jpg" target="_blank" rel="noopener" hidden><img id="lastCatImage" alt="The last picture of Irida"></a>
+      <span class="thumb empty" id="noCatThumb"><svg class="icon"><use href="#i-paw"/></svg></span>
+      <span id="lastCatTitle">Not seen yet</span>
+      <p id="lastCatText">Turn on watching to spot her and record clips.</p>
+      <div class="care-actions">
+        <button id="watchSwitch" class="switch" role="switch" aria-checked="false"><span class="track"></span><span id="watchLabel">Watch for Irida</span></button>
+        <button id="lastCatGo" hidden>Look there</button>
+      </div>
+      <p id="watchState" class="hint" style="grid-column: 1 / -1; margin-top: 4px"></p>
+    </section>
+
+    <section id="activity" aria-labelledby="clipsTitle">
+      <div class="section-head"><h2 id="clipsTitle">Activity</h2><span id="clipsState" role="status"></span></div>
+      <p id="clipsEmpty" hidden>No clips yet. A clip is recorded each time Irida comes into view.</p>
+      <div id="clipList"></div>
+    </section>
+  </aside>
+</main>
+
+<dialog id="player" aria-label="Clip">
+  <video id="playerVideo" controls playsinline preload="metadata"></video>
+  <div class="playerbar">
+    <span id="playerText"></span>
+    <a id="playerSave" class="button" download>Save</a>
+    <button id="playerDelete">Delete</button>
+    <button id="playerClose" autofocus>Close</button>
+  </div>
+</dialog>
+
+<dialog id="settings" aria-labelledby="settingsTitle">
+  <div class="pane-head"><h2 id="settingsTitle">Settings</h2><button id="closeSettings" class="iconbtn" aria-label="Close">✕</button></div>
+  <div class="setting"><span>Privacy mode</span><div class="pair">
+    <button data-setting="privacy" data-on="true">On</button><button data-setting="privacy" data-on="false">Off</button>
+  </div></div>
+  <div class="setting"><span>Status light</span><div class="pair">
+    <button data-setting="led" data-on="true">On</button><button data-setting="led" data-on="false">Off</button>
+  </div></div>
+  <div class="setting"><span>Camera gestures</span><div class="pair">
+    <button data-gesture="yes">Nod yes</button><button data-gesture="no">Shake no</button>
+  </div></div>
+  <div class="setting"><span>Rattle sound</span><div class="stack">
+    <label class="button" for="toySound" id="toySoundLabel">Upload her toy's sound</label>
+    <input id="toySound" type="file" accept="audio/*" hidden>
+    <button id="toySoundReset" hidden>Use the made-up rattle</button>
+  </div>
+  <p id="rattleState" class="hint" role="status" hidden></p></div>
+  <span id="host"></span>
+</dialog>
+
+<p id="note" role="alert"></p>
+
+<script>
+  const $ = (selector) => document.querySelector(selector);
+  const canvas = $("#video"), context = canvas.getContext("2d"), fallback = $("#fallback"), message = $("#message"), note = $("#note");
+  const MAX_DECODE_QUEUE = 4;
+  let quality = "high", moving = false, gotFrame = false, videoError = "", session = 0, controller = null;
+  const stats = { frames: 0, bytes: 0, skipped: 0, decodeMs: 0 };
+
+  let noteTimer = null;
+  function showNote(text) {
+    note.textContent = text;
+    clearTimeout(noteTimer);
+    if (text) noteTimer = setTimeout(() => { note.textContent = ""; }, 8000);
+  }
+
+  async function post(path, body) {
+    try {
+      const reply = await fetch(path, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body || {}) });
+      const data = await reply.json().catch(() => ({}));
+      showNote(reply.ok ? "" : (data.error || `Request failed (${reply.status})`));
+      return reply.ok;
+    } catch {
+      showNote("The IridaCare server is not responding.");
+      return false;
+    }
+  }
+
+  // Each frame starts with an access unit delimiter: start code 00 00 01, then NAL type 9.
+  function nextFrameStart(bytes, from) {
+    for (let i = from; i + 3 < bytes.length; i++) {
+      if (bytes[i] === 0 && bytes[i + 1] === 0 && bytes[i + 2] === 1 && (bytes[i + 3] & 0x1f) === 9) {
+        return i > 0 && bytes[i - 1] === 0 ? i - 1 : i;
+      }
+    }
+    return -1;
+  }
+
+  // Reads the frame's headers: whether it is a keyframe, and the codec from its SPS.
+  function inspectFrame(bytes) {
+    let codec = null;
+    for (let i = 0; i + 3 < bytes.length; i++) {
+      if (bytes[i] !== 0 || bytes[i + 1] !== 0 || bytes[i + 2] !== 1) continue;
+      const type = bytes[i + 3] & 0x1f;
+      if (type === 7 && i + 6 < bytes.length) {
+        codec = "avc1." + [bytes[i + 4], bytes[i + 5], bytes[i + 6]].map((b) => b.toString(16).padStart(2, "0")).join("");
+      } else if (type === 5) {
+        return { key: true, codec };
+      } else if (type === 1) {
+        return { key: false, codec };
+      }
+    }
+    return { key: false, codec };
+  }
+
+  async function playStream(current, signal) {
+    const reply = await fetch(`/video.h264?quality=${quality}`, { signal });
+    if (!reply.ok) {
+      const data = await reply.json().catch(() => ({}));
+      throw new Error(data.error || `Video request failed (${reply.status})`);
+    }
+
+    // The server sends SD when the camera has no HD connection left.
+    const served = reply.headers.get("X-Quality") || quality;
+    $("#hdBusy").hidden = served === quality;
+    // Try HD again now and then; the last picture stays up while it reconnects.
+    if (served !== quality) setTimeout(() => { if (current === session) startVideo(); }, 60000);
+    let decoderError = null, needKeyframe = true;
+    const decoder = new VideoDecoder({
+      output(frame) {
+        if (current === session) {
+          if (canvas.width !== frame.displayWidth || canvas.height !== frame.displayHeight) {
+            canvas.width = frame.displayWidth;
+            canvas.height = frame.displayHeight;
+          }
+          context.drawImage(frame, 0, 0);
+          stats.frames++;
+          stats.decodeMs += performance.now() - frame.timestamp / 1000;
+          gotFrame = true;
+          videoError = "";
+          message.hidden = true;
+        }
+        frame.close();
+      },
+      error(error) { decoderError = error; },
+    });
+
+    const decodeFrame = (bytes) => {
+      const info = inspectFrame(bytes);
+      if (info.codec && decoder.state === "unconfigured") {
+        // Hardware decoders can hold several frames before releasing them.
+        decoder.configure({ codec: info.codec, optimizeForLatency: true, hardwareAcceleration: "prefer-software" });
+      }
+      if (decoder.state !== "configured") return;
+      // If decoding falls behind, skip ahead to the next keyframe, not build up delay.
+      if (decoder.decodeQueueSize > MAX_DECODE_QUEUE) needKeyframe = true;
+      if (needKeyframe && !info.key) { stats.skipped++; return; }
+      needKeyframe = false;
+      decoder.decode(new EncodedVideoChunk({ type: info.key ? "key" : "delta", timestamp: performance.now() * 1000, data: bytes }));
+    };
+
+    const reader = reply.body.getReader();
+    let pending = new Uint8Array(0);
+    try {
+      while (current === session) {
+        if (decoderError) throw decoderError;
+        const { value, done } = await reader.read();
+        if (done) throw new Error("The video stream stopped.");
+        stats.bytes += value.length;
+        const joined = new Uint8Array(pending.length + value.length);
+        joined.set(pending);
+        joined.set(value, pending.length);
+
+        // A frame is complete once the next frame's delimiter has arrived.
+        let start = nextFrameStart(joined, 0);
+        if (start === -1) { pending = joined; continue; }
+        for (;;) {
+          const next = nextFrameStart(joined, start + 4);
+          if (next === -1) break;
+          decodeFrame(joined.subarray(start, next).slice());
+          start = next;
+        }
+        pending = joined.slice(start);
+      }
+    } finally {
+      reader.cancel().catch(() => {});
+      if (decoder.state !== "closed") decoder.close();
+    }
+  }
+
+  async function startVideo() {
+    const current = ++session;
+    if (controller) controller.abort();
+    controller = new AbortController();
+    gotFrame = false;
+    videoError = "";
+    if (!window.VideoDecoder) {
+      canvas.hidden = true;
+      fallback.hidden = false;
+      fallback.src = `/video.mjpg?quality=${quality}&t=${Date.now()}`;
+      return;
+    }
+    try {
+      await playStream(current, controller.signal);
+    } catch (error) {
+      if (current !== session || error.name === "AbortError") return;
+      videoError = error.message;
+      gotFrame = false;
+      setTimeout(() => { if (current === session) startVideo(); }, 3000);
+    }
+  }
+  fallback.addEventListener("load", () => { gotFrame = true; message.hidden = true; });
+  fallback.addEventListener("error", () => setTimeout(startVideo, 3000));
+
+  document.querySelectorAll("[data-quality]").forEach((button) => button.addEventListener("click", () => {
+    quality = button.dataset.quality;
+    document.querySelectorAll("[data-quality]").forEach((b) => b.classList.toggle("active", b === button));
+    message.hidden = false; message.className = ""; message.textContent = "Connecting…";
+    startVideo();
+  }));
+
+  let moveRequest = Promise.resolve(), moveTimer = null, moveGeneration = 0;
+  function startMove(pan, tilt) {
+    if (moving) return;
+    moving = true;
+    const current = ++moveGeneration;
+    const renew = () => {
+      moveRequest = moveRequest.then(() => {
+        if (!moving || current !== moveGeneration) return;
+        const speed = Number($("#speed").value);
+        return post("/api/move", { pan: pan * speed, tilt: tilt * speed });
+      }).then(() => {
+        if (moving && current === moveGeneration) moveTimer = setTimeout(renew, 2000);
+      });
+    };
+    renew();
+  }
+  function stopMove() {
+    if (!moving) return;
+    moving = false;
+    moveGeneration++;
+    clearTimeout(moveTimer);
+    moveRequest = moveRequest.then(() => post("/api/stop"));
+  }
+
+  $("#snapshot").addEventListener("click", (event) => {
+    event.preventDefault();
+    if (!gotFrame) { showNote("No picture from the camera yet."); return; }
+    const image = fallback.hidden ? canvas : fallback;
+    const snapshot = document.createElement("canvas");
+    snapshot.width = fallback.hidden ? canvas.width : fallback.naturalWidth;
+    snapshot.height = fallback.hidden ? canvas.height : fallback.naturalHeight;
+    snapshot.getContext("2d").drawImage(image, 0, 0);
+    snapshot.toBlob((blob) => {
+      if (!blob) { showNote("Could not save the snapshot."); return; }
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(blob);
+      link.download = "irida-" + new Date().toISOString().replace(/[:.]/g, "-") + ".jpg";
+      link.click();
+      setTimeout(() => URL.revokeObjectURL(link.href), 1000);
+    }, "image/jpeg");
+  });
+
+  document.querySelectorAll("#pad button").forEach((button) => {
+    button.addEventListener("pointerdown", (event) => {
+      button.setPointerCapture(event.pointerId);
+      startMove(Number(button.dataset.pan), Number(button.dataset.tilt));
+    });
+    button.addEventListener("pointerup", stopMove);
+    button.addEventListener("pointercancel", stopMove);
+    button.addEventListener("keydown", (event) => {
+      if (event.key === " " || event.key === "Enter") { event.preventDefault(); startMove(Number(button.dataset.pan), Number(button.dataset.tilt)); }
+    });
+    button.addEventListener("keyup", (event) => { if (event.key === " " || event.key === "Enter") stopMove(); });
+    button.addEventListener("blur", stopMove);
+    button.addEventListener("contextmenu", (event) => event.preventDefault());
+  });
+
+  const arrows = { ArrowUp: [0, 1], ArrowDown: [0, -1], ArrowLeft: [-1, 0], ArrowRight: [1, 0] };
+  document.addEventListener("keydown", (event) => {
+    if (arrows[event.key] && !["INPUT", "SELECT"].includes(event.target.tagName) && !$("#player").open) { event.preventDefault(); startMove(...arrows[event.key]); }
+  });
+  document.addEventListener("keyup", (event) => { if (arrows[event.key]) stopMove(); });
+  window.addEventListener("blur", stopMove);
+
+  // One drawer under the round buttons; a second tap closes it.
+  document.querySelectorAll("[data-pane]").forEach((tool) => tool.addEventListener("click", () => {
+    const open = tool.getAttribute("aria-expanded") !== "true";
+    document.querySelectorAll("[data-pane]").forEach((t) => t.setAttribute("aria-expanded", String(open && t === tool)));
+    document.querySelectorAll(".pane").forEach((pane) => { pane.hidden = !open || pane.id !== `pane-${tool.dataset.pane}`; });
+    $("#drawer").hidden = !open;
+    if (!open) stopMove();
+  }));
+  $("#openSettings").addEventListener("click", () => $("#settings").showModal());
+  $("#closeSettings").addEventListener("click", () => $("#settings").close());
+  $("#settings").addEventListener("click", (event) => { if (event.target === $("#settings")) $("#settings").close(); });
+  $("#fullscreen").addEventListener("click", () => {
+    const view = $("#view");
+    if (document.fullscreenElement) document.exitFullscreen();
+    else if (view.requestFullscreen) view.requestFullscreen().catch(() => {});
+    else if (canvas.webkitEnterFullscreen) canvas.webkitEnterFullscreen();
+  });
+
+  document.querySelectorAll("[data-setting]").forEach((button) => button.addEventListener("click", async () => {
+    if (await post("/api/setting", { name: button.dataset.setting, on: button.dataset.on === "true" })) {
+      document.querySelectorAll(`[data-setting="${button.dataset.setting}"]`).forEach((b) => b.classList.toggle("active", b === button));
+    }
+  }));
+
+  document.querySelectorAll("[data-target]").forEach((button) => button.addEventListener("click", () => post("/api/follow", { target: button.dataset.target })));
+  $("#followOff").addEventListener("click", () => post("/api/follow", { target: null }));
+  document.querySelectorAll("[data-gesture]").forEach((button) => button.addEventListener("click", () => post("/api/gesture", { kind: button.dataset.gesture })));
+
+  const objects = ["cat", "dog", "person", "bird", "cup", "bottle", "cell phone", "laptop", "book", "chair", "teddy bear", "sports ball"];
+  objects.forEach((name) => $("#object").add(new Option(name, name)));
+  $("#object").addEventListener("change", (event) => { if (event.target.value) post("/api/follow", { target: event.target.value, search: true }); });
+
+  $("#customForm").addEventListener("submit", (event) => {
+    event.preventDefault();
+    const target = $("#custom").value.trim();
+    if (target) post("/api/follow", { target, search: true });
+  });
+
+  function addBox(parent, box, label, kind) {
+    const element = document.createElement("div");
+    element.className = kind ? `box ${kind}` : "box";
+    const [left, top, right, bottom] = box;
+    element.style.left = `${left * 100}%`;
+    element.style.top = `${top * 100}%`;
+    element.style.width = `${(right - left) * 100}%`;
+    element.style.height = `${(bottom - top) * 100}%`;
+    if (label) {
+      const text = document.createElement("span");
+      text.textContent = label;
+      element.append(text);
+    }
+    parent.append(element);
+  }
+
+  const followLabels = { off: "Not following.", starting: "Starting…", idle: "Watching, not following.", gesture: "Gesturing.", searching: "Looking for", following: "Following", chasing: "Lost sight, chasing", scanning: "Searching the room for" };
+  async function refreshFollow() {
+    try {
+      const status = await (await fetch("/api/follow")).json();
+      document.querySelectorAll("[data-target]").forEach((b) => b.classList.toggle("active", b.dataset.target === status.target));
+      const picked = status.target && objects.includes(status.target) ? status.target : "";
+      if ($("#object").value !== picked) $("#object").value = picked;
+      const label = followLabels[status.state] || status.state;
+      $("#followState").textContent = status.error || (status.target && ["searching", "following", "chasing", "scanning"].includes(status.state) ? `${label} ${status.target}.` : label);
+      $("#followOff").disabled = !status.target;
+      $("#followTool").classList.toggle("lit", !!status.target);
+      const boxes = document.createElement("div");
+      boxes.id = "boxes";
+      // Only what matters: what it is following, and Irida. Not every object it recognises.
+      if (status.box) addBox(boxes, status.box, status.target, "target");
+      watchCats.forEach((cat) => addBox(boxes, cat.box, `Irida ${Math.round(cat.score * 100)}%`, "cat"));
+      $("#boxes").replaceWith(boxes);
+    } catch {
+      $("#followState").textContent = "The IridaCare server is not responding.";
+    }
+  }
+  setInterval(refreshFollow, 200);
+
+  // --- Irida: watching, last sighting, her toy ---------------------------
+  let watchCats = [], shownCatTime = "", watching = false;
+  $("#watchSwitch").addEventListener("click", async () => {
+    const on = !watching;
+    $("#watchSwitch").setAttribute("aria-checked", String(on));
+    await post("/api/watch", { on });
+    refreshWatch();
+  });
+  $("#lastCatGo").addEventListener("click", () => post("/api/watch/goto"));
+  async function refreshRattle() {
+    try {
+      const { recorded } = await (await fetch("/api/rattle")).json();
+      $("#toySoundReset").hidden = !recorded;
+      $("#toySoundLabel").textContent = recorded ? "Replace her toy's sound" : "Upload her toy's sound";
+      return recorded;
+    } catch { return false; }
+  }
+  function rattleSays(text) {
+    $("#rattleState").hidden = !text;
+    $("#rattleState").textContent = text;
+  }
+  $("#rattle").addEventListener("click", async () => {
+    const button = $("#rattle"), label = button.querySelector(".label");
+    if (button.classList.contains("busy")) return;
+    button.classList.add("busy");
+    label.textContent = "Rattling";
+    const ok = await post("/api/rattle");
+    button.classList.remove("busy");
+    label.textContent = ok ? "Rattled" : "Rattle";
+    setTimeout(() => { label.textContent = "Rattle"; }, 2500);
+  });
+  $("#toySound").addEventListener("change", async (event) => {
+    const file = event.target.files[0];
+    event.target.value = "";
+    if (!file) return;
+    rattleSays("Saving her toy's sound…");
+    const form = new FormData();
+    form.append("sound", file);
+    try {
+      const reply = await fetch("/api/rattle/sound", { method: "POST", body: form });
+      const data = await reply.json().catch(() => ({}));
+      rattleSays(reply.ok ? "Saved. The rattle button now plays her toy's sound." : "");
+      showNote(reply.ok ? "" : (data.error || `Request failed (${reply.status})`));
+    } catch {
+      showNote("The IridaCare server is not responding.");
+    }
+    refreshRattle();
+  });
+  $("#toySoundReset").addEventListener("click", async () => {
+    await fetch("/api/rattle/sound", { method: "DELETE" });
+    rattleSays("Back to the made-up rattle.");
+    refreshRattle();
+  });
+  refreshRattle();
+
+  const clock = (date) => date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  function ago(time) {
+    const seconds = Math.max(0, Math.round((Date.now() - new Date(time)) / 1000));
+    if (seconds < 45) return "just now";
+    if (seconds < 3600) return `${Math.max(1, Math.round(seconds / 60))} min ago`;
+    if (seconds < 86400) return `${Math.floor(seconds / 3600)} h ${Math.round(seconds % 3600 / 60)} min ago`;
+    const days = Math.round(seconds / 86400);
+    return days === 1 ? "yesterday" : `${days} days ago`;
+  }
+  function dayName(date) {
+    const start = (d) => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+    const days = Math.round((start(new Date()) - start(date)) / 86400000);
+    if (days === 0) return "Today";
+    if (days === 1) return "Yesterday";
+    return date.toLocaleDateString([], { weekday: "long", day: "numeric", month: "long" });
+  }
+  function spotIn(box) {
+    const middle = (box[0] + box[2]) / 2;
+    return middle < 0.33 ? "on the left" : middle > 0.67 ? "on the right" : "in the middle";
+  }
+  function elapsed(since) {
+    const s = Math.max(0, Math.round((Date.now() - new Date(since)) / 1000));
+    return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
+  }
+
+  async function refreshWatch() {
+    try {
+      const status = await (await fetch("/api/watch")).json();
+      watching = status.enabled;
+      $("#watchSwitch").setAttribute("aria-checked", String(watching));
+      $("#watchLabel").textContent = watching ? "Watching for Irida" : "Watch for Irida";
+      watchCats = status.cats || [];
+      const here = status.state === "cat";
+      const last = status.last;
+
+      // The line at the top: is she here, and if not, when was she.
+      const presence = $("#presence");
+      presence.className = here ? "here" : last ? "seen" : "";
+      $("#presenceText").textContent = here ? "Irida is in view" : last ? `Seen ${ago(last.time)}` : watching ? "Not seen yet" : "Watching is off";
+
+      $("#watchState").textContent = status.error || "";
+      $("#watchState").hidden = !status.error;
+      $("#stats").title = status.fps ? `Checking for Irida ${status.fps} times a second` : "";
+      $("#lightBadge").hidden = !watching || status.infrared === undefined;
+      $("#lightBadge").textContent = status.infrared ? "Night vision" : "Daylight";
+      showRecording(status);
+
+      $("#lastCatLink").hidden = !last;
+      $("#noCatThumb").hidden = !!last;
+      $("#lastCatGo").hidden = !last || last.pan === null || here;
+      if (last) {
+        if (last.time !== shownCatTime) {
+          shownCatTime = last.time;
+          $("#lastCatImage").src = `/api/watch/last.jpg?t=${encodeURIComponent(last.time)}`;
+        }
+        const when = new Date(last.time);
+        $("#lastCatTitle").textContent = here ? "In view now" : `Seen ${ago(last.time)}`;
+        $("#lastCatText").textContent = `${dayName(when)} at ${clock(when)}, ${spotIn(last.box)} of the picture.`;
+      } else {
+        $("#lastCatTitle").textContent = "Not seen yet";
+        $("#lastCatText").textContent = watching ? "Looking for her. Clips are recorded when she shows up." : "Turn on watching to spot her and record clips.";
+      }
+    } catch {
+      $("#presenceText").textContent = "Server not responding";
+      $("#presence").className = "";
+    }
+  }
+  refreshWatch();
+  setInterval(refreshWatch, 250);
+
+  // --- Clips: recorded while she is in view, until 30 s after she was last seen.
+  let shownClips = "", playing = null, recordingName = null, deleteTimer = null;
+  function clipLength(seconds) {
+    if (seconds == null) return "";
+    const s = Math.round(seconds);
+    return s >= 60 ? `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}` : `0:${String(s).padStart(2, "0")}`;
+  }
+  function play(clip) {
+    playing = clip.name;
+    const video = $("#playerVideo");
+    video.src = `/clips/${clip.name}.mp4`;
+    $("#playerSave").href = video.src;
+    const when = new Date(clip.started);
+    const title = document.createElement("small");
+    title.textContent = `${clipLength(clip.seconds)} long, ${Math.round(clip.score * 100)}% sure${clip.infrared ? ", night vision" : ""}`;
+    $("#playerText").replaceChildren(`${dayName(when)} at ${clock(when)}`, title);
+    resetDelete();
+    $("#player").showModal();
+    video.play().catch(() => {});
+  }
+  function resetDelete() {
+    clearTimeout(deleteTimer);
+    $("#playerDelete").classList.remove("confirm");
+    $("#playerDelete").textContent = "Delete";
+  }
+  $("#player").addEventListener("close", () => {
+    playing = null;
+    const video = $("#playerVideo");
+    video.pause();
+    video.removeAttribute("src");
+    video.load();
+  });
+  $("#player").addEventListener("click", (event) => { if (event.target === $("#player")) $("#player").close(); });
+  $("#playerClose").addEventListener("click", () => $("#player").close());
+  $("#playerDelete").addEventListener("click", async () => {
+    const button = $("#playerDelete");
+    // A second tap confirms, so a stray tap cannot lose a clip.
+    if (!button.classList.contains("confirm")) {
+      button.classList.add("confirm");
+      button.textContent = "Tap again to delete";
+      deleteTimer = setTimeout(resetDelete, 4000);
+      return;
+    }
+    const name = playing;
+    $("#player").close();
+    try {
+      const reply = await fetch(`/api/clips/${name}`, { method: "DELETE" });
+      showNote(reply.ok ? "" : `Could not delete the clip (${reply.status}).`);
+    } catch { showNote("The IridaCare server is not responding."); }
+    refreshClips();
+  });
+
+  function clipCard(clip) {
+    const button = document.createElement("button");
+    button.className = "clip";
+    button.setAttribute("aria-label", `Play the clip from ${new Date(clip.started).toLocaleString()}`);
+    const pic = document.createElement("span");
+    pic.className = "pic";
+    const image = document.createElement("img");
+    image.src = `/clips/${clip.name}.jpg`;
+    image.alt = "";
+    image.loading = "lazy";
+    const length = document.createElement("span");
+    length.className = "len";
+    length.textContent = clipLength(clip.seconds);
+    pic.append(image, length);
+    const when = document.createElement("span");
+    when.className = "when";
+    const detail = document.createElement("small");
+    const started = new Date(clip.started);
+    detail.textContent = dayName(started);
+    when.append(clock(started), detail);
+    button.append(pic, when);
+    button.addEventListener("click", () => play(clip));
+    return button;
+  }
+  async function refreshClips() {
+    try {
+      const { clips } = await (await fetch("/api/clips")).json();
+      const total = clips.reduce((sum, c) => sum + (c.bytes || 0), 0);
+      const size = total >= 1e9 ? `${(total / 1e9).toFixed(1)} GB` : `${Math.max(1, Math.round(total / 1e6))} MB`;
+      if (!recordingName) $("#clipsState").textContent = clips.length ? `${clips.length} clip${clips.length === 1 ? "" : "s"}, ${size}` : "";
+      $("#clipsEmpty").hidden = clips.length > 0;
+      const serialized = JSON.stringify(clips);
+      if (serialized === shownClips) return;
+      shownClips = serialized;
+      $("#clipList").replaceChildren(...clips.map(clipCard));
+      if (playing && !clips.some((c) => c.name === playing)) $("#player").close();
+    } catch {
+      $("#clipsState").textContent = "The IridaCare server is not responding.";
+    }
+  }
+  function showRecording(status) {
+    const name = status.recording || null;
+    const state = $("#clipsState");
+    state.classList.toggle("rec", !!name);
+    $("#recBadge").hidden = !name;
+    if (name) {
+      $("#recBadge").textContent = `REC ${elapsed(status.recording_since)}`;
+      state.textContent = `Recording now`;
+    }
+    if (name !== recordingName) {
+      const finished = recordingName && !name;
+      recordingName = name;
+      refreshClips();
+      if (finished) setTimeout(refreshClips, 3000);  // Saving takes a moment.
+    }
+  }
+  refreshClips();
+  setInterval(refreshClips, 10000);
+
+  // --- Voice -------------------------------------------------------------
+  let voiceOn = false;
+  $("#voiceSwitch").addEventListener("click", async () => {
+    $("#voiceSwitch").setAttribute("aria-checked", String(!voiceOn));
+    await post("/api/voice", { on: !voiceOn });
+    refreshVoice();
+  });
+  const voiceLabels = { off: "Off. The microphone is not sent anywhere.", connecting: "Connecting…", listening: "Listening.", hearing: "Hearing you…", thinking: "Thinking…" };
+  let shownLines = "";
+  async function refreshVoice() {
+    try {
+      const status = await (await fetch("/api/voice")).json();
+      voiceOn = status.on;
+      $("#voiceSwitch").setAttribute("aria-checked", String(voiceOn));
+      $("#voiceTool").classList.toggle("lit", voiceOn);
+      const onAir = status.on ? ` Mic level ${status.mic_level}/7. Microphone audio is going to OpenAI.` : "";
+      $("#voiceState").textContent = (status.error || voiceLabels[status.state] || status.state) + onAir;
+      const serialized = JSON.stringify(status.lines);
+      if (serialized !== shownLines) {
+        shownLines = serialized;
+        const names = { heard: "Heard", camera: "Camera", tool: "Action" };
+        $("#lines").replaceChildren(...status.lines.map((line) => {
+          const paragraph = document.createElement("p");
+          const who = document.createElement("b");
+          who.textContent = `${names[line.who] || line.who}: `;
+          paragraph.append(who, line.text);
+          return paragraph;
+        }));
+        $("#lines").scrollTop = $("#lines").scrollHeight;
+      }
+    } catch {
+      $("#voiceState").textContent = "The IridaCare server is not responding.";
+    }
+  }
+  refreshVoice();
+  setInterval(refreshVoice, 1000);
+
+  async function refreshStatus() {
+    try {
+      const status = await (await fetch("/api/status")).json();
+      $("#host").textContent = `Camera at ${status.host}`;
+      const error = videoError || (!window.VideoDecoder && status.streams[quality].error);
+      if (!status.configured) {
+        message.hidden = false; message.className = "bad";
+        message.textContent = `Add the camera account login to ${status.env_file}. This page will connect by itself.`;
+      } else if (error) {
+        message.hidden = false; message.className = "bad"; message.textContent = error;
+      } else if (gotFrame) {
+        message.hidden = true;
+      } else {
+        message.hidden = false; message.className = ""; message.textContent = "Connecting…";
+      }
+    } catch {
+      message.hidden = false; message.className = "bad"; message.textContent = "The IridaCare server is not responding.";
+    }
+  }
+
+  setInterval(() => {
+    const parts = [`${(stats.frames / 2).toFixed(0)} fps`, `${(stats.bytes * 8 / 2 / 1e6).toFixed(1)} Mbit/s`];
+    if (stats.skipped) parts.push(`${stats.skipped} frames skipped`);
+    $("#stats").textContent = parts.join(", ");
+    stats.frames = stats.bytes = stats.skipped = stats.decodeMs = 0;
+  }, 2000);
+
+  startVideo();
+  refreshStatus();
+  setInterval(refreshStatus, 2000);
+</script>
+</body>
+</html>
